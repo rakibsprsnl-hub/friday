@@ -1,0 +1,33 @@
+name: Build Friday
+on:
+  push:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Arrange files
+        run: |
+          mkdir -p src/main/java/com/friday/assistant src/main/assets
+          mv -f AndroidManifest.xml src/main/AndroidManifest.xml
+          mv -f App.kt src/main/java/com/friday/assistant/App.kt
+          mv -f friday.html src/main/assets/friday.html
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+      - name: Build
+        run: gradle assembleDebug --no-daemon -Dorg.gradle.jvmargs=-Xmx3g
+      - name: Publish APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp build/outputs/apk/debug/*-debug.apk Friday.apk
+          gh release delete latest --yes --cleanup-tag || true
+          gh release create latest Friday.apk --title "Friday latest build" --notes "Download Friday.apk and install it."
